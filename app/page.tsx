@@ -1,17 +1,19 @@
 'use client';
 
 import { useState } from 'react';
-import Image from "next/image";
+import { Tarea } from '@/types/todo';
+import Papelera from '@/components/papelera';
 
 export default function Home() {
-  const [tareas, setTareas] = useState<any[]>([]);
+  const [tareas, setTareas] = useState<Tarea[]>([]);
+  const [papelera, setPapelera] = useState<Tarea[]>([]);
   const [textoInput, setTextoInput] = useState('');
-  const [idEditando, setIdEditando] = useState<any>(null);
+  const [idEditando, setIdEditando] = useState<number | null>(null);
   const [textoEditado, setTextoEditado] = useState('');
 
-  const agregarTarea = (e: any) => {
+  const agregarTarea = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && textoInput.trim() !== '') {
-      const nuevaTarea = {
+      const nuevaTarea: Tarea = {
         id: Date.now(),
         texto: textoInput.trim(),
         completada: false,
@@ -21,41 +23,47 @@ export default function Home() {
     }
   };
 
-  const cambiarEstado = (id: any) => {
-    const nuevasTareas = tareas.map((t) => {
-      if (t.id === id) {
-        return { ...t, completada: !t.completada };
-      }
-      return t;
-    });
-    setTareas(nuevasTareas);
+  const cambiarEstado = (id: number) => {
+    setTareas(
+      tareas.map((t) => (t.id === id ? { ...t, completada: !t.completada } : t))
+    );
   };
 
-  const iniciarEdicion = (tarea: any) => {
+  const iniciarEdicion = (tarea: Tarea) => {
     setIdEditando(tarea.id);
     setTextoEditado(tarea.texto);
   };
 
-  const guardarEdicion = (id: any) => {
-    const nuevasTareas = tareas.map((t) => {
-      if (t.id === id) {
-        return { ...t, texto: textoEditado.trim() };
-      }
-      return t;
-    });
-    setTareas(nuevasTareas);
+  const guardarEdicion = (id: number) => {
+    setTareas(
+      tareas.map((t) => (t.id === id ? { ...t, texto: textoEditado.trim() } : t))
+    );
     setIdEditando(null);
   };
 
-  const eliminarTarea = (id: any) => {
-    const tareasFiltradas = tareas.filter((t) => t.id !== id);
-    setTareas(tareasFiltradas);
+  const enviarAPapelera = (id: number) => {
+    const tareaAEliminar = tareas.find((t) => t.id === id);
+    if (tareaAEliminar) {
+      setPapelera([...papelera, tareaAEliminar]);
+      setTareas(tareas.filter((t) => t.id !== id));
+    }
+  };
+
+  const restaurarTarea = (id: number) => {
+    const tareaARestaurar = papelera.find((t) => t.id === id);
+    if (tareaARestaurar) {
+      setTareas([...tareas, tareaARestaurar]);
+      setPapelera(papelera.filter((t) => t.id !== id));
+    }
+  };
+
+  const eliminarDefinitivo = (id: number) => {
+    setPapelera(papelera.filter((t) => t.id !== id));
   };
 
   return (
-    <div className="flex flex-col flex-1 items-center justify-center min-h-screen bg-zinc-50 font-sans dark:bg-black">
+    <div className="flex flex-col flex-1 items-center justify-center min-h-screen bg-zinc-50 font-sans dark:bg-black relative">
       <main className="flex flex-1 w-full max-w-xl flex-col items-center justify-start py-16 px-8 bg-white dark:bg-black sm:items-start gap-8">
-        
         <div className="w-full flex flex-col gap-4 text-left">
           <h1 className="text-2xl font-semibold tracking-tight text-black dark:text-zinc-50">
             Mi Lista de Tareas
@@ -90,7 +98,9 @@ export default function Home() {
                       value={textoEditado}
                       onChange={(e) => setTextoEditado(e.target.value)}
                       onBlur={() => guardarEdicion(tarea.id)}
-                      onKeyDown={(e) => e.key === 'Enter' && guardarEdicion(tarea.id)}
+                      onKeyDown={(e) =>
+                        e.key === 'Enter' && guardarEdicion(tarea.id)
+                      }
                       autoFocus
                       className="px-2 py-1 rounded border border-zinc-400 bg-transparent text-black dark:text-white focus:outline-none"
                     />
@@ -109,7 +119,7 @@ export default function Home() {
                 </div>
 
                 <button
-                  onClick={() => eliminarTarea(tarea.id)}
+                  onClick={() => enviarAPapelera(tarea.id)}
                   className="px-3 py-1 text-sm rounded-full bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-colors"
                 >
                   Borrar
@@ -117,10 +127,14 @@ export default function Home() {
               </li>
             ))}
           </ul>
-
         </div>
-
       </main>
+
+      <Papelera
+        tareasEliminadas={papelera}
+        onRestaurar={restaurarTarea}
+        onEliminarDefinitivo={eliminarDefinitivo}
+      />
     </div>
   );
 }
