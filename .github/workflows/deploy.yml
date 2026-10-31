@@ -24,13 +24,14 @@ jobs:
 
       - name: Compilar proyecto Next.js
         run: npm run build
-
-      # --- Despliegue a AWS S3 ---
+        
+# --- Despliegue a AWS S3 ---
       - name: Configurar credenciales AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Sincronizar archivos con S3
