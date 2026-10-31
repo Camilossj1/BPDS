@@ -1,32 +1,49 @@
-name: Deploy Next.js (estático) a EC2
+name: Deploy Next.js to S3 and EC2
 
 on:
   push:
-    branches: [main, master]
-  workflow_dispatch:
+    branches:
+      - main 
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout del código
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
+          node-version: 18
+          cache: 'npm'
 
-      - run: npm ci
-      - run: npm run build
+      - name: Instalar dependencias
+        run: npm ci
 
-      - name: Configurar SSH
+      - name: Compilar proyecto Next.js
+        run: npm run build
+
+      # --- Despliegue a AWS S3 ---
+      - name: Configurar credenciales AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Sincronizar archivos con S3
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/key.pem
-          chmod 600 ~/.ssh/key.pem
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+          aws s3 sync out/ s3://${{ secrets.AWS_S3_BUCKET }} --delete
 
-      - name: Copiar out/ a EC2
-        run: |
-          rsync -avz --delete -e "ssh -i ~/.ssh/key.pem" \
-            ./out/ ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/var/www/html/
+    
+      - name: Copiar archivos a EC2 vía SSH
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "out/*"
+          target: "/var/www/html"
+          strip_components: 1
